@@ -1,7 +1,7 @@
-use genetica::individual::{Generate, Individual, Mutate};
+use genetica::individual::{DynamicLengthIndividual, Generate, Individual, Mutate};
 use image::Rgba;
 
-use crate::CONFIG;
+use crate::{CONFIG, RGBA, TARGET_IMAGE};
 
 #[macro_export]
 macro_rules! generate_value {
@@ -13,7 +13,7 @@ macro_rules! generate_value {
 
 #[derive(Debug, Clone)]
 pub struct GeneType {
-    pub rgba: Rgba<u8>,
+    pub rgba: RGBA,
 }
 
 impl Generate for GeneType {
@@ -53,4 +53,48 @@ impl Mutate for GeneType {
 pub struct Chromosome {
     pub genes: Vec<GeneType>,
     pub fitness: Option<f32>,
+}
+
+impl Individual for Chromosome {
+    type GeneType = GeneType;
+    fn new() -> Self {
+        let genes: Vec<GeneType> = (0..=10000).map(|_| GeneType::generate()).collect();
+        Chromosome {
+            genes,
+            fitness: None,
+        }
+    }
+    fn mutate_genes(&mut self) {
+        self.genes_mut().iter_mut().for_each(|g| g.mutate());
+    }
+    fn fitness(&self) -> Option<f32> {
+        self.fitness
+    }
+    fn fitness_mut(&mut self) -> &mut Option<f32> {
+        &mut self.fitness
+    }
+
+    fn calculate_fitness(&mut self) {
+        let mut fitness: f32 = 0.0;
+        let image = TARGET_IMAGE.get().unwrap();
+        for (x, y, pixel) in image.data.enumerate_pixels() {
+            let i = (y * 100 + x) as usize;
+            if i < self.genes.len() {
+                let rgba = &self.genes[i].rgba.0;
+                for i in 0..4 {
+                    fitness -= (pixel.0[i] as f32 - rgba[i] as f32).abs();
+                }
+            }
+        }
+        self.fitness = Some(fitness)
+    }
+}
+
+impl DynamicLengthIndividual for Chromosome {
+    fn genes(&self) -> &Vec<Self::GeneType> {
+        &self.genes
+    }
+    fn genes_mut(&mut self) -> &mut Vec<Self::GeneType> {
+        &mut self.genes
+    }
 }

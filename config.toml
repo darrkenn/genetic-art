@@ -1,0 +1,4 @@
+generations = 10000
+population_count = 250
+crossover_probability = 0.5
+mutation_probability = 0.07
