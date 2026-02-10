@@ -4,10 +4,11 @@ use genetica::{
     crossover::dynamic_length_single_point_crossover,
     individual::Individual,
     population::{generate_population, sort_population_descending},
+    selection::tournament_selection,
 };
 use image::{ImageBuffer, ImageReader, Rgb, RgbImage};
 use lazy_static::lazy_static;
-use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 use serde::Deserialize;
 use std::{env, fs, process, sync::OnceLock};
 
@@ -29,8 +30,10 @@ impl ImageDimensions {
 pub struct Config {
     pub generations: i32,
     pub elite_count: usize,
+    pub offspring_count: usize,
+    pub tournament_size: usize,
     pub resize_dimensions: ImageDimensions,
-    pub population_count: i32,
+    pub population_count: usize,
     pub crossover_probability: f32,
     pub mutation_probability: f32,
 }
@@ -133,29 +136,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if verbosity >= 2 {
             println!("Generation: {num}");
         }
-        let parent1 = &population[0];
-        let parent2 = &population[1];
-        let (mut child1, mut child2) =
-            dynamic_length_single_point_crossover(parent1, parent2, CONFIG.crossover_probability);
-        child1.mutate_genes();
-        child2.mutate_genes();
 
-        let mut new_population: Vec<Chromosome> = generate_population(CONFIG.population_count - 4);
-
-        new_population.push(child1);
-        new_population.push(child2);
-        new_population.push(parent1.clone());
-        new_population.push(parent2.clone());
-        population = new_population;
+        // Calculate fitness and sort population
         population
             .par_iter_mut()
             .for_each(|c| c.calculate_fitness());
         sort_population_descending(&mut population);
+
         if verbosity >= 3 {
             let best = population.first().unwrap();
-            println!("Best fitness in generation: {num}: {}", best.fitness);
+            let worst = population.last().unwrap();
+            println!("Generation {num}:");
+            println!("  Best fitness:  {}", best.fitness);
+            println!("  Worst fitness: {}", worst.fitness);
         }
+
+        let elites: Vec<Chromosome> = population
+            .iter()
+            .take(CONFIG.elite_count)
+            .cloned()
+            .collect();
+
+        let mut new_population: Vec<Chromosome> = Vec::with_capacity(CONFIG.population_count);
+        new_population.extend(generate_population(
+            CONFIG.population_count - CONFIG.elite_count - CONFIG.offspring_count,
+        ));
+
+        let offspring: Vec<Chromosome> = (0..CONFIG.offspring_count)
+            .into_par_iter()
+            .flat_map(|_| {
+                let parents = tournament_selection(&elites, CONFIG.tournament_size, 2).ok()?;
+                let parent1 = &parents[0];
+                let parent2 = &parents[1];
+                let (mut child1, mut child2) = dynamic_length_single_point_crossover(
+                    parent1,
+                    parent2,
+                    CONFIG.crossover_probability,
+                );
+                child1.mutate_genes();
+                child2.mutate_genes();
+                Some(vec![child1, child2])
+            })
+            .flatten()
+            .collect();
+
+        new_population.extend(offspring);
+        new_population.extend(elites);
+        population = new_population;
     }
+
+    population
+        .par_iter_mut()
+        .for_each(|c| c.calculate_fitness());
+    sort_population_descending(&mut population);
+
     let best = population.first().unwrap();
     let worst = population.last().unwrap();
     let image = construct_image(best.clone());
