@@ -1,7 +1,7 @@
 mod chromosome;
 
 use genetica::{
-    crossover::{dynamic_length_single_point_crossover, dynamic_length_two_point_crossover},
+    crossover::dynamic_length_two_point_crossover,
     individual::Individual,
     population::{generate_population, generate_population_parallel, sort_population_descending},
     selection::tournament_selection,
@@ -145,6 +145,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .par_iter_mut()
             .for_each(|c| c.calculate_fitness());
         sort_population_descending(&mut population);
+
+        if population.first().unwrap().fitness == -0.00 {
+            break;
+        }
 
         if verbosity >= 3 {
             let best = population.first().unwrap();
