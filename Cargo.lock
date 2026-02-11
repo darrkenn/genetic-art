@@ -364,11 +364,12 @@ dependencies = [
 
 [[package]]
 name = "genetica"
-version = "2.2.1"
+version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9680f32cd43509d8a9041ee6aa3fe29b1ef692f7e8a02bc10a3f83bbacfbe145"
+checksum = "ee76fa625e37adc5e1f0ac487bab1aaddc7920384dd24bf2e0d9b4b1ee00d102"
 dependencies = [
  "rand 0.10.0",
+ "rayon",
 ]
 
 [[package]]

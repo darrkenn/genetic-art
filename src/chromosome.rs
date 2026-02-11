@@ -1,5 +1,9 @@
 use genetica::individual::{DynamicLengthIndividual, Generate, Individual, Mutate};
 use image::Rgb;
+use rayon::{
+    iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelBridge, ParallelIterator},
+    slice::ParallelSlice,
+};
 
 use crate::{CONFIG, RGB, TARGET_IMAGE};
 
@@ -49,6 +53,7 @@ impl Individual for Chromosome {
     type GeneType = GeneType;
     fn new() -> Self {
         let genes: Vec<GeneType> = (0..=CONFIG.resize_dimensions.total_pixels())
+            .into_par_iter()
             .map(|_| GeneType::generate())
             .collect();
         Chromosome {
@@ -67,19 +72,31 @@ impl Individual for Chromosome {
     }
 
     fn calculate_fitness(&mut self) {
-        //let mut fitness: f32 = 0.0;
-        let mut error_count: f32 = 0.0;
         let image = TARGET_IMAGE.get().unwrap();
-        for (x, y, pixel) in image.data.enumerate_pixels() {
-            let i = (y * CONFIG.resize_dimensions.x as u32 + x) as usize;
-            if i < self.genes.len() {
-                let rgb = &self.genes[i].rgb.0;
-                for p in 0..3 {
-                    error_count += (pixel.0[p] as f32 - rgb[p] as f32).abs();
-                    //fitness -= (pixel.0[i] as f32 - rgb[i] as f32).abs();
-                }
-            }
-        }
+
+        let error_count: f32 = image
+            .data
+            .enumerate_pixels()
+            .collect::<Vec<_>>()
+            .par_chunks(CONFIG.resize_dimensions.total_pixels() as usize)
+            .map(|chunk| {
+                chunk
+                    .iter()
+                    .map(|(x, y, pixel)| {
+                        let i = (y * CONFIG.resize_dimensions.x as u32 + x) as usize;
+                        if i < self.genes.len() {
+                            let rgb = &self.genes[i].rgb.0;
+                            (0..3)
+                                .map(|p| (pixel.0[p] as f32 - rgb[p] as f32).abs())
+                                .sum::<f32>()
+                        } else {
+                            0.0
+                        }
+                    })
+                    .sum::<f32>()
+            })
+            .sum();
+
         self.fitness = -error_count;
     }
 }

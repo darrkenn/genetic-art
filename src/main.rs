@@ -1,14 +1,17 @@
 mod chromosome;
 
 use genetica::{
-    crossover::dynamic_length_single_point_crossover,
+    crossover::{dynamic_length_single_point_crossover, dynamic_length_two_point_crossover},
     individual::Individual,
-    population::{generate_population, sort_population_descending},
+    population::{generate_population, generate_population_parallel, sort_population_descending},
     selection::tournament_selection,
 };
 use image::{ImageBuffer, ImageReader, Rgb, RgbImage};
 use lazy_static::lazy_static;
-use rayon::iter::{IntoParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,
+    IntoParallelRefMutIterator, ParallelIterator,
+};
 use serde::Deserialize;
 use std::{env, fs, process, sync::OnceLock};
 
@@ -152,13 +155,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let elites: Vec<Chromosome> = population
-            .iter()
+            .par_iter()
             .take(CONFIG.elite_count)
             .cloned()
             .collect();
 
         let mut new_population: Vec<Chromosome> = Vec::with_capacity(CONFIG.population_count);
-        new_population.extend(generate_population(
+        new_population.extend(generate_population_parallel(
             CONFIG.population_count - CONFIG.elite_count - CONFIG.offspring_count,
         ));
 
@@ -168,11 +171,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let parents = tournament_selection(&elites, CONFIG.tournament_size, 2).ok()?;
                 let parent1 = &parents[0];
                 let parent2 = &parents[1];
-                let (mut child1, mut child2) = dynamic_length_single_point_crossover(
+                let (mut child1, mut child2) = dynamic_length_two_point_crossover(
                     parent1,
                     parent2,
                     CONFIG.crossover_probability,
                 );
+                /*
+                                let (mut child1, mut child2) = dynamic_length_single_point_crossover(
+                                    parent1,
+                                    parent2,
+                                    CONFIG.crossover_probability,
+                                );
+                */
                 child1.mutate_genes();
                 child2.mutate_genes();
                 Some(vec![child1, child2])
