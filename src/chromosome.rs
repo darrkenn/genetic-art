@@ -1,7 +1,7 @@
 use genetica::individual::{DynamicLengthIndividual, Generate, Individual, Mutate};
 use image::Rgb;
 use rayon::{
-    iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelBridge, ParallelIterator},
+    iter::{IntoParallelIterator, ParallelIterator},
     slice::ParallelSlice,
 };
 

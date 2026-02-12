@@ -13,7 +13,13 @@ use rayon::iter::{
     IntoParallelRefMutIterator, ParallelIterator,
 };
 use serde::Deserialize;
-use std::{env, fs, process, sync::OnceLock};
+use std::{
+    env,
+    fs::{self, create_dir},
+    path::Path,
+    process,
+    sync::OnceLock,
+};
 
 use crate::chromosome::Chromosome;
 
@@ -207,6 +213,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let best = population.first().unwrap();
     let worst = population.last().unwrap();
     let image = construct_image(best.clone());
+    if !Path::new("output").exists() {
+        create_dir("output")?
+    };
     image.save("output/image.png")?;
     println!("Image created");
     if verbosity >= 1 {
