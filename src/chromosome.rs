@@ -6,6 +6,7 @@ use rayon::{
 };
 
 use crate::{CONFIG, RGB, TARGET_IMAGE};
+use std::simd::{num::SimdUint, u8x4};
 
 #[macro_export]
 macro_rules! generate_value {
@@ -86,9 +87,14 @@ impl Individual for Chromosome {
                         let i = (y * CONFIG.resize_dimensions.x as u32 + x) as usize;
                         if i < self.genes.len() {
                             let rgb = &self.genes[i].rgb.0;
-                            (0..3)
-                                .map(|p| (pixel.0[p] as f32 - rgb[p] as f32).abs())
-                                .sum::<f32>()
+
+                            // 0 is just padding
+                            let pixel_vec =
+                                u8x4::from_array([pixel.0[0], pixel.0[1], pixel.0[2], 0]);
+                            let rgb_vec = u8x4::from_array([rgb[0], rgb[1], rgb[2], 0]);
+
+                            let sum = (pixel_vec - rgb_vec).reduce_sum();
+                            sum as f32
                         } else {
                             0.0
                         }
