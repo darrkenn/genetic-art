@@ -89,12 +89,8 @@ impl Individual for Chromosome {
                     let rgb = &self.genes[i].rgb.0;
                     let pixel = image.data.get_pixel(x, y);
                     // 0 is just padding
-                    let pixel_vec = f32x4::from_array([
-                        pixel.0[0] as f32,
-                        pixel.0[1] as f32,
-                        pixel.0[2] as f32,
-                        0.0,
-                    ]);
+                    let pixel_vec =
+                        f32x4::from_array([pixel[0] as f32, pixel[1] as f32, pixel[2] as f32, 0.0]);
                     let rgb_vec =
                         f32x4::from_array([rgb[0] as f32, rgb[1] as f32, rgb[2] as f32, 0.0]);
 
